@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Where Did I Park?</title>
+  <meta name="theme-color" content="#000000" />
+  <style>
+    :root{
+      --bg:#000000;
+      --card:#1c1c1e;
+      --card-2:#2c2c2e;
+      --text:#f5f5f7;
+      --muted:#9a9aa0;
+      --green:#30d158;
+      --green-dark:#1f8f3d;
+      --danger:#ff453a;
+      --shadow:0 10px 30px rgba(0,0,0,.28);
+      --radius:22px;
+    }
+
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",sans-serif;}
+    body{
+      min-height:100vh;
+      min-height:100dvh;
+    }
+
+    .app{
+      width:min(100%, 860px);
+      margin:0 auto;
+      padding:
+        calc(env(safe-area-inset-top, 0px) + 18px)
+        18px
+        calc(env(safe-area-inset-bottom, 0px) + 28px);
+    }
+
+    .hero{
+      text-align:center;
+      margin:10px 0 22px;
+    }
+
+    .hero h1{
+      margin:0 0 8px;
+      font-size:clamp(1.9rem, 4vw, 2.45rem);
+      font-weight:700;
+      letter-spacing:-0.03em;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      font-size:1rem;
+    }
+
+    .status{
+      background:linear-gradient(180deg, #171717 0%, #101010 100%);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:28px;
+      padding:22px 18px;
+      box-shadow:var(--shadow);
+      margin-bottom:22px;
+      text-align:center;
+    }
+
+    .status-label{
+      color:var(--muted);
+      font-size:.95rem;
+      margin-bottom:8px;
+    }
+
+    .status-floor{
+      min-height:56px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:clamp(2rem, 7vw, 3rem);
+      font-weight:800;
+      letter-spacing:-0.04em;
+      margin-bottom:6px;
+    }
+
+    .status-time{
+      color:#c9c9ce;
+      font-size:1rem;
+      line-height:1.45;
+      min-height:48px;
+    }
+
+    .status-empty{
+      color:#6e6e73;
+    }
+
+    .actions{
+      display:flex;
+      gap:12px;
+      margin-top:16px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      font:inherit;
+    }
+
+    .secondary-btn{
+      background:var(--card);
+      color:var(--text);
+      padding:12px 16px;
+      border-radius:14px;
+      min-width:120px;
+      font-weight:600;
+      box-shadow:var(--shadow);
+    }
+
+    .secondary-btn:active{
+      transform:scale(.98);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:14px;
+    }
+
+    .floor-btn{
+      background:var(--card);
+      color:var(--text);
+      border-radius:24px;
+      min-height:98px;
+      font-size:2rem;
+      font-weight:700;
+      box-shadow:var(--shadow);
+      transition:transform .12s ease, background .12s ease, box-shadow .12s ease;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .floor-btn::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+      opacity:.8;
+      pointer-events:none;
+    }
+
+    .floor-btn:active{
+      transform:scale(.98);
+    }
+
+    .floor-btn.selected{
+      background:var(--green);
+      color:#041608;
+      box-shadow:0 12px 30px rgba(48,209,88,.32);
+    }
+
+    .footer-note{
+      margin-top:20px;
+      text-align:center;
+      color:#6e6e73;
+      font-size:.92rem;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(env(safe-area-inset-bottom, 0px) + 22px);
+      transform:translateX(-50%) translateY(16px);
+      background:rgba(28,28,30,.96);
+      color:var(--text);
+      padding:12px 16px;
+      border-radius:999px;
+      font-size:.95rem;
+      box-shadow:var(--shadow);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .2s ease, transform .2s ease;
+      white-space:nowrap;
+      max-width:calc(100vw - 32px);
+      text-overflow:ellipsis;
+      overflow:hidden;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 420px){
+      .floor-btn{
+        min-height:88px;
+        font-size:1.75rem;
+      }
+      .grid{
+        gap:12px;
+      }
+      .app{
+        padding-left:14px;
+        padding-right:14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>Where Did I Park?</h1>
+      <p>Tap your parking floor once. It will be saved automatically.</p>
+    </section>
+
+    <section class="status" aria-live="polite">
+      <div class="status-label">Saved parking floor</div>
+      <div class="status-floor" id="savedFloor">—</div>
+      <div class="status-time" id="savedTime">No parking spot saved yet.</div>
+      <div class="actions">
+        <button class="secondary-btn" id="clearBtn" type="button">Clear</button>
+      </div>
+    </section>
+
+    <section class="grid" id="grid" aria-label="Parking floor options"></section>
+
+    <div class="footer-note">Your selection stays saved when you reopen the app.</div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const FLOORS = [
+      "1A","1B",
+      "2A","2B",
+      "3A","3B",
+      "4A","4B",
+      "5A","5B",
+      "6A","6B",
+      "7A","7B"
+    ];
+
+    const STORAGE_KEY = "parking-floor-entry-v2";
+
+    const grid = document.getElementById("grid");
+    const savedFloorEl = document.getElementById("savedFloor");
+    const savedTimeEl = document.getElementById("savedTime");
+    const clearBtn = document.getElementById("clearBtn");
+    const toast = document.getElementById("toast");
+
+    function showToast(message){
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 1600);
+    }
+
+    function formatSavedTime(isoString){
+      const date = new Date(isoString);
+      if (Number.isNaN(date.getTime())) return "Saved just now";
+
+      const absolute = date.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+
+      const diffMs = Date.now() - date.getTime();
+      const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+
+      let ago = "just now";
+      if (diffMin >= 1 && diffMin < 60) {
+        ago = `${diffMin} min ago`;
+      } else if (diffMin >= 60 && diffMin < 1440) {
+        const h = Math.floor(diffMin / 60);
+        const m = diffMin % 60;
+        ago = m ? `${h}h ${m}m ago` : `${h}h ago`;
+      } else if (diffMin >= 1440) {
+        const d = Math.floor(diffMin / 1440);
+        ago = d === 1 ? "1 day ago" : `${d} days ago`;
+      }
+
+      return `${absolute} • ${ago}`;
+    }
+
+    function getSavedEntry(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      }catch{
+        return null;
+      }
+    }
+
+    function saveEntry(floor){
+      const entry = {
+        floor,
+        parkedAt: new Date().toISOString()
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entry));
+      render(entry);
+      showToast(`Saved ${floor}`);
+    }
+
+    function clearEntry(){
+      localStorage.removeItem(STORAGE_KEY);
+      render(null);
+      showToast("Cleared");
+    }
+
+    function render(entry){
+      const selectedFloor = entry?.floor ?? null;
+
+      savedFloorEl.textContent = selectedFloor || "—";
+      savedFloorEl.classList.toggle("status-empty", !selectedFloor);
+
+      savedTimeEl.textContent = entry?.parkedAt
+        ? formatSavedTime(entry.parkedAt)
+        : "No parking spot saved yet.";
+
+      [...grid.querySelectorAll(".floor-btn")].forEach(btn => {
+        const isSelected = btn.dataset.floor === selectedFloor;
+        btn.classList.toggle("selected", isSelected);
+        btn.setAttribute("aria-pressed", isSelected ? "true" : "false");
+      });
+    }
+
+    function buildGrid(){
+      FLOORS.forEach(floor => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "floor-btn";
+        btn.textContent = floor;
+        btn.dataset.floor = floor;
+        btn.setAttribute("aria-label", `Save parking floor ${floor}`);
+        btn.addEventListener("click", () => saveEntry(floor));
+        grid.appendChild(btn);
+      });
+    }
+
+    clearBtn.addEventListener("click", () => {
+      const hasSaved = !!getSavedEntry();
+      if (!hasSaved) {
+        showToast("Nothing to clear");
+        return;
+      }
+      clearEntry();
+    });
+
+    buildGrid();
+    render(getSavedEntry());
+
+    setInterval(() => {
+      const entry = getSavedEntry();
+      if (entry?.parkedAt) {
+        savedTimeEl.textContent = formatSavedTime(entry.parkedAt);
+      }
+    }, 30000);
+  </script>
+</body>
+</html>
